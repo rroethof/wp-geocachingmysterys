@@ -1,10 +1,11 @@
 <?php
 /* Plugin Name: Mystery Oplossingen
-Plugin URI: http://www.geomaatjes.nl/
-Description: Mystery Oplossingen
+Plugin URI: https://github.com/rroethof/wp-geocachingmysterys
+Description: Mystery Oplossingen for Wordpress
 Version: 1.1
 Author: Ronny Roethof
 Author URI: http://www.familieroethof.nl/
+Example URI: http://www.geomaatjes.nl/
 License: GPLv2 or later
 */
 
@@ -34,18 +35,26 @@ function Mystery_install() {
 	}
 
 	$sql = "CREATE TABLE $table_name (
-		id mediumint(9) NOT NULL AUTO_INCREMENT,
-		time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
-		name tinytext NOT NULL,
-		text text NOT NULL,
-		url varchar(55) DEFAULT '' NOT NULL,
-		UNIQUE KEY id (id)
-	) $charset_collate;";
+		id int(11) NOT NULL AUTO_INCREMENT,
+		gccode varchar(10) NOT NULL,
+		plaats varchar(50) NOT NULL,
+		naam varchar(100) NOT NULL,
+		url varchar(100) NOT NULL,
+		noord varchar(20) NOT NULL,
+		oost varchar(20) NOT NULL,
+		code varchar(10) NOT NULL,
+		notitie longtext NOT NULL,
+		bezocht_famroethof int(1) NOT NULL DEFAULT '0',
+		bezocht_mythmagic int(1) NOT NULL DEFAULT '0',
+		bezocht_gio int(1) NOT NULL DEFAULT '0',
+  		PRIMARY KEY (id),
+  		UNIQUE KEY gccode (gccode)
+	) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;";
 
 	require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 	dbDelta( $sql );
 
-	add_option( 'jal_db_version', $jal_db_version );
+	add_option( 'mystery_db_version', $mystery_db_version );
 }
 
 // Add the admin menu
