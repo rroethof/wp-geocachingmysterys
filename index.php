@@ -1,60 +1,58 @@
 <?php
-/* Plugin Name: Mystery Oplossingen
-Plugin URI: https://github.com/rroethof/wp-geocachingmysterys
-Description: Mystery Oplossingen for Wordpress
-Version: 1.1
+/* Plugin Name: Geocaching Mystery Sollutions
+Plugin URI: http://www.geomaatjes.nl/
+https://github.com/rroethof/wp-geocachingmysterys
+Description: Mystery cache sollutions for Wordpress
+Version: 1.2
 Author: Ronny Roethof
 Author URI: http://www.familieroethof.nl/
-Example URI: http://www.geomaatjes.nl/
 License: GPLv2 or later
 */
 
 global $mystery_db_version;
-$mystery_db_version = '1.1';
+$mystery_db_version = '1.2';
 
 // Activate plugin
 function Mystery_install() {
-	global $wpdb;
-	global $mystery_db_version;
-	
-	$table_name = $wpdb->prefix . 'mysterys';
-	
-	/*
-	 * We'll set the default character set and collation for this table.
-	 * If we don't do this, some characters could end up being converted 
-	 * to just ?'s when saved in our table.
-	 */
-	$charset_collate = '';
+    global $wpdb;
+    global $mystery_db_version;
 
-	if ( ! empty( $wpdb->charset ) ) {
-	  $charset_collate = "DEFAULT CHARACTER SET {$wpdb->charset}";
-	}
+    $table_name = $wpdb->prefix . 'mysterys';
 
-	if ( ! empty( $wpdb->collate ) ) {
-	  $charset_collate .= " COLLATE {$wpdb->collate}";
-	}
+    /*
+     * We'll set the default character set and collation for this table.
+     * If we don't do this, some characters could end up being converted 
+     * to just ?'s when saved in our table.
+     */
+    $charset_collate = '';
 
-	$sql = "CREATE TABLE $table_name (
-		id int(11) NOT NULL AUTO_INCREMENT,
-		gccode varchar(10) NOT NULL,
-		plaats varchar(50) NOT NULL,
-		naam varchar(100) NOT NULL,
-		url varchar(100) NOT NULL,
-		noord varchar(20) NOT NULL,
-		oost varchar(20) NOT NULL,
-		code varchar(10) NOT NULL,
-		notitie longtext NOT NULL,
-		bezocht_famroethof int(1) NOT NULL DEFAULT '0',
-		bezocht_mythmagic int(1) NOT NULL DEFAULT '0',
-		bezocht_gio int(1) NOT NULL DEFAULT '0',
-  		PRIMARY KEY (id),
-  		UNIQUE KEY gccode (gccode)
-	) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;";
+    if ( ! empty( $wpdb->charset ) ) {
+        $charset_collate = "DEFAULT CHARACTER SET {$wpdb->charset}";
+    }
 
-	require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
-	dbDelta( $sql );
+    if ( ! empty( $wpdb->collate ) ) {
+        $charset_collate .= " COLLATE {$wpdb->collate}";
+    }
 
-	add_option( 'mystery_db_version', $mystery_db_version );
+    $sql = "CREATE TABLE $table_name (
+        id int(11) NOT NULL AUTO_INCREMENT,
+        gccode varchar(10) NOT NULL,
+	active int(1) NOT NULL DEFAULT '1',
+        plaats varchar(50) NOT NULL,
+        naam varchar(100) NOT NULL,
+        url varchar(100) NOT NULL,
+        noord varchar(20) NOT NULL,
+        oost varchar(20) NOT NULL,
+        code varchar(10) NOT NULL,
+        notitie longtext NOT NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY gccode (gccode)
+    ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;";
+
+    require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+    dbDelta( $sql );
+
+    add_option( 'mystery_db_version', $mystery_db_version );
 }
 
 // Add the admin menu
@@ -63,6 +61,7 @@ add_action( 'admin_menu', 'addMysteryMenu' );
 // The function for the admin menu
 function addMysteryMenu(){
     add_menu_page('Mystery lijstje', 'Mystery\'s', 'manage_options', 'Mystery_settings_page', 'Mystery_settings_page', 'dashicons-cart', 3);
+    add_submenu_page('Mystery_settings_page', 'Mystery\'s oplossen', 'Mystery\'s oplossen', 'manage_options', 'Mystery_solve_page', 'Mystery_solve_page');
     add_submenu_page('Mystery_settings_page', 'Mystery toevoegen', 'Mystery toevoegen', 'manage_options', 'Mystery_items_add', 'Mystery_items_add');
 }
 
@@ -83,19 +82,18 @@ function Mystery_settings_page() {
     echo "</tr>";
 
     $colorid = 0;
-    $bedrag = 0;
-    
-    global $wpdb;
-	$table_name = $wpdb->prefix . 'mysterys';
 
-	$allposts = $wpdb->get_results( $wpdb->prepare("SELECT * FROM $table_name ORDER BY naam ASC"));
-	foreach ($allposts as $mysteryitem) { 
-		if ($colorid % 2 != 0) { # An odd row
-		    $rowColor = "";
-		} else { # An even row
-		    $rowColor = "alternate";
-		}
-		echo "<tr class='".$rowColor."'>";
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'mysterys';
+
+    $allposts = $wpdb->get_results( $wpdb->prepare("SELECT * FROM $table_name ORDER BY naam ASC"));
+    foreach ($allposts as $mysteryitem) { 
+        if ($colorid % 2 != 0) { # An odd row
+            $rowColor = "";
+        } else { # An even row
+            $rowColor = "alternate";
+        }
+		echo "<tr class='".$rowColor."".$actief."'>";
         echo "<td>".$mysteryitem->id."</td>";
         echo "<td><a href='".$mysteryitem->url."' target='_blank'>".$mysteryitem->gccode."</a></td>";
         echo "<td>".$mysteryitem->plaats."</td>";
@@ -108,19 +106,75 @@ function Mystery_settings_page() {
         }
 
         echo "<td width=300>";
-		if($mysteryitem->noord != '' || $mysteryitem->oost != '' || $mysteryitem->code != '' ) {
-		    echo "<a href='http://geomaatjes.nl/wp-admin/admin.php?page=Mystery_items_add&id=".$mysteryitem->id."' title='bewerken'><div class='dashicons dashicons-clipboard'></div></a>";
-		} else {
-		    echo "<a href='http://geomaatjes.nl/wp-admin/admin.php?page=Mystery_items_add&id=".$mysteryitem->id."' title='bewerken'><div class='dashicons dashicons-clipboard'></div></a>";
-			echo "&nbsp;&nbsp;&nbsp;";
-		    echo "<a href='http://geomaatjes.nl/wp-admin/admin.php?page=Mystery_items_add&id=".$mysteryitem->id."' title='oplossen'><div class='dashicons dashicons-admin-site'></div></a>";
-		}
+        if($mysteryitem->noord != '' || $mysteryitem->oost != '' || $mysteryitem->code != '' ) {
+            echo "<a href='http://geomaatjes.nl/wp-admin/admin.php?page=Mystery_items_add&id=".$mysteryitem->id."' title='bewerken'><div class='dashicons dashicons-clipboard'></div></a>";
+        } else {
+            echo "<a href='http://geomaatjes.nl/wp-admin/admin.php?page=Mystery_items_add&id=".$mysteryitem->id."' title='bewerken'><div class='dashicons dashicons-clipboard'></div></a>";
+            echo "&nbsp;&nbsp;&nbsp;";
+            echo "<a href='http://geomaatjes.nl/wp-admin/admin.php?page=Mystery_items_add&id=".$mysteryitem->id."' title='oplossen'><div class='dashicons dashicons-admin-site'></div></a>";
+        }
         echo "</td>";
         echo "</tr>";
-	$colorid++;
+        $colorid++;
     }
     echo "</table>";
-} 
+}
+
+// INDEX PAGINA
+function Mystery_solve_page() {
+    echo "<div class='wrap'>";
+    echo "<h2>Mystery Overzicht: open mystery's</h2>";
+
+    echo "<table class='wp-list-table widefat fixed footable'>";
+    echo "<thead>";
+    echo "<tr>";
+    echo "<th id='id' class='manage-column column-role' style='width: 100%;' scope='col'>#</th>";
+    echo "<th id='gccode' class='manage-column column-role' style='width: 100%;' scope='col'>GCCode</th>";
+    echo "<th id='plaats' class='manage-column column-role' style='width: 100%;' scope='col'>Plaats</th>";
+    echo "<th id='naam' class='manage-column column-role' style='width: 100%;' scope='col' >Naam</th>";
+    echo "<th id='oplossing' class='manage-column column-role' style='width: 100%;' scope='col' >Oplossing</th>";
+    echo "<th id='actie1' class='manage-column column-role' style='width: 100%;' scope='col' >Actie</th>";
+    echo "</tr>";
+
+    $colorid = 0;
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'mysterys';
+
+    $allposts = $wpdb->get_results( $wpdb->prepare("SELECT * FROM $table_name WHERE noord = '' AND oost = '' AND code = '' ORDER BY naam ASC"));
+    foreach ($allposts as $mysteryitem) { 
+        if ($colorid % 2 != 0) { # An odd row
+            $rowColor = "";
+        } else { # An even row
+            $rowColor = "alternate";
+        }
+        echo "<tr class='".$rowColor."'>";
+        echo "<td>".$mysteryitem->id."</td>";
+        echo "<td><a href='".$mysteryitem->url."' target='_blank'>".$mysteryitem->gccode."</a></td>";
+        echo "<td>".$mysteryitem->plaats."</td>";
+        echo "<td><a href='".$mysteryitem->url."' target='_blank'>".$mysteryitem->naam."</a></td>";
+
+        if($mysteryitem->noord != '') {
+            echo "<td>N ".$mysteryitem->noord." &nbsp; E ".$mysteryitem->oost."</td>";
+        } else {
+            echo "<td>".$mysteryitem->code."</td>";
+        }
+
+        echo "<td width=300>";
+        if($mysteryitem->noord != '' || $mysteryitem->oost != '' || $mysteryitem->code != '' ) {
+            echo "<a href='http://geomaatjes.nl/wp-admin/admin.php?page=Mystery_items_add&id=".$mysteryitem->id."' title='bewerken'><div class='dashicons dashicons-clipboard'></div></a>";
+        } else {
+            echo "<a href='http://geomaatjes.nl/wp-admin/admin.php?page=Mystery_items_add&id=".$mysteryitem->id."' title='bewerken'><div class='dashicons dashicons-clipboard'></div></a>";
+            echo "&nbsp;&nbsp;&nbsp;";
+            echo "<a href='http://geomaatjes.nl/wp-admin/admin.php?page=Mystery_items_add&id=".$mysteryitem->id."' title='oplossen'><div class='dashicons dashicons-admin-site'></div></a>";
+        }
+        echo "</td>";
+        echo "</tr>";
+        $colorid++;
+    }
+    echo "</table>";
+}
+
 
 // TOEVOEGEN PAGINA
 function Mystery_items_add() {
@@ -130,54 +184,50 @@ function Mystery_items_add() {
     <?php
     if (isset($_POST["voegitemtoe"])) {
         // Do the saving
-		global $wpdb;
-		$table_name = $wpdb->prefix . 'mysterys';
-		$wpdb->show_errors();
-		if(isset($_POST['id'])) {
-
-			// Update
-			$wpdb->query("UPDATE $table_name SET 
-    		    gccode = '".$_POST['gccode']."',
-    		    plaats = '".$_POST['plaats']."',
-    	    	naam = '".$_POST['naam']."',
-	    	    notitie = '".$_POST['notitie']."',
-    		    noord = '".$_POST['noord']."',
-    		    oost =  '".$_POST['oost']."',
-    	    	url =  '".$_POST['url']."'
-				WHERE id = '".$_POST['id']."'
-			");
-			echo "<h2>Mystery Oplossingen: Item Oplossen</h2>";
-			echo "GC Code: ".$_POST['gccode']."<br>";
-			echo "Naam: ".$_POST['naam']."<br>";
-			echo "Oplossen gelukt";
-			echo "<br>";
-			echo "<a href='?page=Mystery_settings_page'>Overzicht</a>";
-
-		} else {
-			$wpdb->insert($table_name, array(
-    		    "gccode" => $_POST['gccode'],
-    		    "plaats" => $_POST['plaats'],
-    	    	"naam" => $_POST['naam'],
-	    	    "notitie" => nl2br($_POST['notitie']),
-    		    "noord" => $_POST['noord'],
-    		    "oost" => $_POST['oost'],
-    	    	"url" => $_POST['url']
-			));
-		
-			echo "<h2>Mystery Oplossingen: Item Toevoegen</h2>";
-			echo "GC Code: ".$_POST['gccode']."<br>";
-			echo "Naam: ".$_POST['naam']."<br>";
-			echo "Toevoegen gelukt";
-			echo "<br>";
-			echo "<a href='?page=Mystery_items_add'>Nieuwe item toevoegen</a>";
-
-		}
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'mysterys';
+        $wpdb->show_errors();
+        if(isset($_POST['id'])) {
+            // Update
+            $wpdb->query("UPDATE $table_name SET 
+                gccode = '".$_POST['gccode']."',
+				active = '".$_POST['active']."',
+                plaats = '".$_POST['plaats']."',
+                naam = '".$_POST['naam']."',
+                notitie = '".$_POST['notitie']."',
+                noord = '".$_POST['noord']."',
+                oost =  '".$_POST['oost']."',
+                url =  '".$_POST['url']."'
+                WHERE id = '".$_POST['id']."'
+            ");
+            echo "<h2>Mystery Oplossingen: Item Oplossen</h2>";
+            echo "GC Code: ".$_POST['gccode']."<br>";
+            echo "Naam: ".$_POST['naam']."<br>";
+            echo "Oplossen gelukt";
+            echo "<br>";
+            echo "<a href='?page=Mystery_settings_page'>Overzicht</a>";
+        } else {
+            $wpdb->insert($table_name, array(
+                "gccode" => $_POST['gccode'],
+                "plaats" => $_POST['plaats'],
+                "naam" => $_POST['naam'],
+                "notitie" => nl2br($_POST['notitie']),
+                "noord" => $_POST['noord'],
+                "oost" => $_POST['oost'],
+                "url" => $_POST['url']
+            ));
+            echo "<h2>Mystery Oplossingen: Item Toevoegen</h2>";
+            echo "GC Code: ".$_POST['gccode']."<br>";
+            echo "Naam: ".$_POST['naam']."<br>";
+            echo "Toevoegen gelukt";
+            echo "<br>";
+            echo "<a href='?page=Mystery_items_add'>Nieuwe item toevoegen</a>";
+        }
     } else {
-		?>
-
-	    <style>
-		/* Elegant Aero */
-		.elegant-aero {
+        ?>
+        <style>
+            /* Elegant Aero */
+            .elegant-aero {
 		    margin-left:auto;
 		    margin-right:auto;
 
@@ -286,6 +336,24 @@ function Mystery_items_add() {
 		    <label>
             	<span>GC Code :</span>
 		        <input id="gccode" type="text" name="gccode" <?php if(!isset($_GET['id'])) { echo "placeholder=\"GC Code\" />"; } else { echo "value=\"$mysterycache->gccode\" />"; } ?>
+		    </label>
+
+		    <label>
+            	<span>Actief :</span>
+                <select name="active">
+                <?php if($mysterycache->active == '0') {
+				?>
+                  <option value="0">gearchiveerd</option>
+                  <option value="1">actief</option>
+                <?php
+				} else {
+				?>
+                  <option value="1">actief</option>
+                  <option value="0">gearchiveerd</option>
+                <?php 
+				}
+				?>
+                </select>
 		    </label>
     
 		    <label>
